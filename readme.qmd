@@ -1,0 +1,77 @@
+---
+title: "US Domestic Flight Delays: September to December 2025"
+format: gfm
+---
+
+# Background
+The 2025 federal government shutdown ran from October 1 to November 12. It was the longest in US history. During this time air traffic controllers worked without pay throughout. The FAA ordered airlines to cut flights at 40 major US airports from November 7 until the order was lifted on November 17. 
+
+# The Data
+The data reflects all delayed domestic flights with in the US for the September–December 2025 period. This covers a normal month before the shutdown, the shutdown itself, the FAA-mandated cuts and the holiday recovery. 
+
+# The Data Source
+The dataset was found on Kaggle and sourced from the official US Bureau of Transportation Statistics (BTS) Reporting Carrier On-Time Performance Database. 
+
+# Load Libraries
+```{python}
+import pandas as pd
+```
+
+# Import the Data
+```{python}
+sep = pd.read_csv("~/Documents/MSBAAcademics/Fall_Mod1/DataWrangling/FinalProject/Data/flight_delays_2025_09.csv")
+
+oct = pd.read_csv("~/Documents/MSBAAcademics/Fall_Mod1/DataWrangling/FinalProject/Data/flight_delays_2025_10.csv")
+
+nov = pd.read_csv("~/Documents/MSBAAcademics/Fall_Mod1/DataWrangling/FinalProject/Data/flight_delays_2025_11.csv")
+
+dec = pd.read_csv("~/Documents/MSBAAcademics/Fall_Mod1/DataWrangling/FinalProject/Data/flight_delays_2025_12.csv")
+```
+
+# Initial Exploration
+
+To explore the dfs with forloops - add them to a dictionary
+```{python}
+dfs = {"September": sep, "October": oct, "November": nov, "December": dec}
+```
+
+Check the shape of all 4 dataframes? 
+```{python}
+for i, df in dfs.items():
+    print(f"{i}: {df.shape}")
+```
+Each dataframe has 40 columns
+
+Print the column names of September
+```{python}
+sep.columns.to_list
+```
+
+Do the column names match for each month? Use Sep as the reference. 
+```{python}
+ref_cols = list(dfs["September"].columns)
+
+for i, df in dfs.items():
+    print(i, list(df.columns) == ref_cols)
+```
+
+Do the data types match?
+```{python}
+ref_types = list(dfs["September"].dtypes)
+
+for i, df in dfs.items():
+    print(i, list(df.dtypes) == ref_types)
+```
+
+# Join the Data: Stack on top
+```{python}
+flights = pd.concat([sep, oct, nov, dec], ignore_index=True)
+
+print(flights.shape)
+```
+
+```{python}
+flights.head
+```
+
+
