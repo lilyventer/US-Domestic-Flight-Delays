@@ -6,11 +6,26 @@ format: gfm
 # Background
 The 2025 federal government shutdown ran from October 1 to November 12. It was the longest in US history. During this time air traffic controllers worked without pay throughout. The FAA ordered airlines to cut flights at 40 major US airports from November 7 until the order was lifted on November 17. 
 
+# 3 Airports of Interest
+Chicago O'Hare (ORD)
+Atlanta (ATL)
+Dallas-Fort Worth (DFW)
+
+According to Paul Hartley, in his article about which U.S. airports were hit hardest by the mass flight cancellations during the government shutdown.
+Link: https://simpleflying.com/examined-which-airports-hardest-hit-mass-cancellations-shutdown/
+
 # The Data
-The data reflects all delayed domestic flights with in the US for the September–December 2025 period. This covers a normal month before the shutdown, the shutdown itself, the FAA-mandated cuts and the holiday recovery. 
+The data reflects all delayed domestic flights within the US for the September–December 2025 period. This covers a normal month before the shutdown, the shutdown itself, the FAA-mandated cuts and the holiday recovery. 
 
 # The Data Source
 The dataset was found on Kaggle and sourced from the official US Bureau of Transportation Statistics (BTS) Reporting Carrier On-Time Performance Database. 
+
+# Take note
+Cancellation Code gives cancelation reason.  
+A = carrier, B = weather, C = NAS, D = security. Empty if not cancelled.
+
+Diverted: 
+1 if the flight was diverted to another airport, otherwise 0.
 
 # Load Libraries
 ```{python}
@@ -44,7 +59,7 @@ Each dataframe has 40 columns
 
 Print the column names of September
 ```{python}
-sep.columns.to_list
+sep.columns.to_list()
 ```
 
 Do the column names match for each month? Use Sep as the reference. 
@@ -70,8 +85,57 @@ flights = pd.concat([sep, oct, nov, dec], ignore_index=True)
 print(flights.shape)
 ```
 
+Look at the head & tail of the data (but see all 40 columns)
 ```{python}
-flights.head
+with pd.option_context('display.max_columns', None): display(flights.head())
 ```
+
+```{python}
+with pd.option_context('display.max_columns', None): display(flights.tail())
+```
+
+```{python}
+flights.info()
+```
+
+Look at the missing values
+```{python}
+flights.isna().sum().sort_values(ascending=False)
+```
+This looks reasonable - the reason for the high number of missing values with Cancellation Code is that most flights in this data were delayed rather than cancelled.
+
+# Creating periods
+Base period: 1 - 30 Sep
+Shutdown: 1 Oct - 6 Nov
+Sutdown & cuts: 7 - 12 Nov
+FAA cuts: 13 - 17 Nov
+Recovery/ Holidays: 18 Nov - 31 Dec
+
+Some things to note: on Nov 15 the madatory flight cut was reduced from 6% to 3%. And the order was lifted Nov 17. 
+
+```{python}
+bins = pd.to_datetime(["2025-09-01", "2025-10-01", "2025-11-07",
+                       "2025-11-13", "2025-11-18", "2026-01-01"]) # each day is the 1st day of the period, with the last period including 31 Dec
+labels = ["Base", "Shutdown", "Shutdown & Cuts",
+          "FAA Cuts", "Recovery/Holidays"]
+
+flights["Period"] = pd.cut(flights["FlightDate"], bins=bins,
+                           labels=labels, right=False) 
+                           # right = FALSE: a period begins on its own edge and stops the day before the next
+
+flights["Period"].value_counts(sort=False)
+```
+
+# Delayed Flights
+
+# Diverted Flights
+
+# Cancelled Flights
+
+
+
+
+
+
 
 
