@@ -761,7 +761,7 @@ congestion.
 Cancellation Codes per hub
 
 ``` python
-code_labels = {"A": "Carrier", "B": "Weather", "C": "NAS", "D": "Security"}
+code_names = {"A": "Carrier", "B": "Weather", "C": "NAS", "D": "Security"}
 ```
 
 ``` python
@@ -772,9 +772,9 @@ hub_cancel = hub_origin[hub_origin["Cancelled"] == 1]
 cancel_counts = (hub_cancel
                  .groupby(["Origin", "CancellationCode"])
                  .size()
-                 .unstack(fill_value=0)
-                 .reindex(index=hubs, columns=list(code_labels), fill_value=0)
-                 .rename(columns=code_labels))
+                 .unstack(fill_value=0) # takes long data and makes it wide
+                 .reindex(index=hubs, columns=list(code_names), fill_value=0) # fill: takes the NaN and makes it 0
+                 .rename(columns=code_names))
 
 cancel_counts
 ```
@@ -802,23 +802,88 @@ cancel_counts
 </div>
 
 ``` python
-ax = cancel_counts.plot(kind="bar", figsize=(10, 5),rot=1)
-ax.set_ylabel("Cancelled flights")
-ax.set_title("Cancellations by Reason and Hub")
-ax.legend(title="Reason")
+fig_a = cancel_counts.plot(kind="bar", figsize=(10, 5), rot = 0) 
+# set a standard fig size, so that all the graphs can look the same
+# rot = 0: makes x labels horizontal
+fig_a .set_ylabel("Cancelled flights")
+fig_a .set_title("Cancellations by Reason and Hub")
+fig_a .legend(title="Reason")
 plt.show()
+plt.close()
 ```
 
 ![](readme_files/figure-commonmark/cell-31-output-1.png)
 
+Look at it in terms of rates for a fair comparison
+
+``` python
+# Total departures per hub (cancelled or not), in hub order
+hub_totals = hub_origin.groupby("Origin").size().reindex(hubs)
+
+# Divide each row of counts by that hub's total departures, then convert to %
+cancel_rates = cancel_counts.div(hub_totals, axis=0) * 100 
+# axis = 0: line up all the rows (1 refers to columns)
+cancel_rates
+```
+
+<div>
+<style scoped>
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+&#10;    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+&#10;    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+
+| CancellationCode | Carrier  | Weather  | NAS      | Security |
+|------------------|----------|----------|----------|----------|
+| Origin           |          |          |          |          |
+| ORD              | 0.166587 | 1.293192 | 0.684379 | 0.0      |
+| ATL              | 0.871991 | 0.224661 | 0.163736 | 0.0      |
+| DFW              | 0.459349 | 0.939928 | 0.368637 | 0.0      |
+
+</div>
+
+``` python
+fig_a2 = cancel_rates.plot(kind="bar", figsize=(10, 5), rot=0)
+
+fig_a2.set_ylabel("% of departures cancelled")
+fig_a2.set_title("Cancellation Rate by Reason and Hub")
+fig_a2.legend(title="Reason")
+plt.show()
+plt.close()
+```
+
+![](readme_files/figure-commonmark/cell-33-output-1.png)
+
+ORD had the highest overall cancellation rate of the three hubs, driven
+mainly by weather and NAS. The NAS rate at ORD was about four times
+ATL’s, which suggests the FAA-mandated cuts and air traffic control
+constraints hit Chicago much harder. ATL stands out as the only hub
+where carrier-related cancellations. DFW, was more of a mix, led by
+weather.
+
 Let’s dig deeper into Chicago Count cancellations by period and reason
+for Chicago Reference: pandas.crosstab pandas.crosstab(index, columns,
+values=None, rownames=None, colnames=None, aggfunc=None, margins=False,
+margins_name=‘All’, dropna=True, normalize=False)\[source\] Compute a
+simple cross tabulation of two (or more) factors.
+
+By default, computes a frequency table of the factors unless an array of
+values and an aggregation function are passed.
+
+(https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.crosstab.html)
 
 ``` python
 ord_flights = hub_origin[hub_origin["Origin"] == "ORD"]
 
 ord_cancel = (pd.crosstab(ord_flights["Period"], ord_flights["CancellationCode"])
-              .reindex(index=labels, columns=list(code_labels), fill_value=0)
-              .rename(columns=code_labels))
+              .reindex(index=labels, columns=list(code_names), fill_value=0) # fill: takes the NaN and makes it 0
+              .rename(columns=code_names))
 
 ord_cancel
 ```
@@ -852,9 +917,9 @@ Counts to percentages
 ``` python
 ord_total = ord_flights["Period"].value_counts().reindex(labels)   # all ORD departures per period
 
-ord_rate = ord_cancel.div(ord_total, axis=0) * 100   # % of flights cancelled
+ord_rate = ord_cancel.div(ord_total, axis=0) * 100 # % of flights cancelled
 
-ord_rate.round(2)
+ord_rate
 ```
 
 <div>
@@ -870,27 +935,34 @@ ord_rate.round(2)
     }
 </style>
 
-| CancellationCode  | Carrier | Weather | NAS  | Security |
-|-------------------|---------|---------|------|----------|
-| Period            |         |         |      |          |
-| Base              | 0.09    | 0.20    | 0.12 | 0.0      |
-| Shutdown          | 0.10    | 0.06    | 0.07 | 0.0      |
-| Shutdown & Cuts   | 0.44    | 1.79    | 9.17 | 0.0      |
-| FAA Cuts          | 0.00    | 0.18    | 1.49 | 0.0      |
-| Recovery/Holidays | 0.26    | 3.27    | 0.33 | 0.0      |
+| CancellationCode  | Carrier  | Weather  | NAS      | Security |
+|-------------------|----------|----------|----------|----------|
+| Period            |          |          |          |          |
+| Base              | 0.086604 | 0.204386 | 0.124710 | 0.0      |
+| Shutdown          | 0.103222 | 0.062476 | 0.073342 | 0.0      |
+| Shutdown & Cuts   | 0.435237 | 1.793175 | 9.174791 | 0.0      |
+| FAA Cuts          | 0.000000 | 0.181635 | 1.493441 | 0.0      |
+| Recovery/Holidays | 0.264497 | 3.273780 | 0.331869 | 0.0      |
 
 </div>
 
 ``` python
-ax = ord_rate.plot(kind="bar", figsize=(10, 5), rot=1)
-ax.set_ylabel("% of departures cancelled")
-ax.set_xlabel("Period")
-ax.set_title("ORD Cancellation Rate by Period and Reason")
-ax.legend(title="Reason")
+fig_b = ord_rate.plot(kind="bar", figsize=(10, 5), rot=0)
+
+fig_b.set_ylabel("% of departures cancelled")
+fig_b.set_xlabel("Period")
+fig_b.set_title("ORD Cancellation Rate by Period and Reason")
+fig_b.legend(title="Reason")
 plt.show()
 ```
 
-![](readme_files/figure-commonmark/cell-34-output-1.png)
+![](readme_files/figure-commonmark/cell-36-output-1.png)
+
+For ORD, cancellation rates stayed near normal through the first part of
+the shutdown, then spiked sharply once the FAA-mandated cuts began.
+Cancellations were almost entirely because of NAS. After the cuts ended,
+NAS cancellations quickly fell back toward baseline and weather became
+the main driver.
 
 Compare NAS Cancellations over the 3 airports during the different
 periods
@@ -901,14 +973,13 @@ hub_origin["NAS_cancel"] = hub_origin["CancellationCode"] == "C" # flags true/ f
 
 ``` python
 # % of departures cancelled for NAS reasons, by period and hub
-nas_rate = (hub_origin
+nas_rate = ((hub_origin
             .groupby(["Period", "Origin"], observed=False)["NAS_cancel"]
-            .mean()
-            .mul(100)
-            .unstack()
+            .mean()*100)
+            .unstack() # long to wide
             .reindex(columns=hubs))
 
-nas_rate.round(2)
+nas_rate
 ```
 
 <div>
@@ -924,35 +995,43 @@ nas_rate.round(2)
     }
 </style>
 
-| Origin            | ORD  | ATL  | DFW  |
-|-------------------|------|------|------|
-| Period            |      |      |      |
-| Base              | 0.12 | 0.01 | 0.12 |
-| Shutdown          | 0.07 | 0.06 | 0.06 |
-| Shutdown & Cuts   | 9.17 | 2.09 | 4.00 |
-| FAA Cuts          | 1.49 | 0.59 | 0.92 |
-| Recovery/Holidays | 0.33 | 0.03 | 0.27 |
+| Origin            | ORD      | ATL      | DFW      |
+|-------------------|----------|----------|----------|
+| Period            |          |          |          |
+| Base              | 0.124710 | 0.011610 | 0.120900 |
+| Shutdown          | 0.073342 | 0.064695 | 0.062064 |
+| Shutdown & Cuts   | 9.174791 | 2.094140 | 3.995881 |
+| FAA Cuts          | 1.493441 | 0.592105 | 0.916784 |
+| Recovery/Holidays | 0.331869 | 0.032447 | 0.267394 |
 
 </div>
 
 ``` python
-ax = nas_rate.plot(kind="bar", figsize=(10, 5), rot=1)
-ax.set_ylabel("% of departures cancelled (NAS)")
-ax.set_xlabel("")
-ax.set_title("NAS Cancellation Rate by Period: ORD vs ATL vs DFW")
-ax.legend(title="Hub")
-plt.tight_layout()
+fig_c = nas_rate.plot(kind="bar", figsize=(10, 5), rot=1)
+
+fig_c.set_ylabel("% of departures cancelled (NAS)")
+fig_c.set_xlabel("")
+fig_c.set_title("NAS Cancellation Rate by Period: ORD vs ATL vs DFW")
+fig_c.legend(title="Hub")
 plt.show()
+plt.close()
 ```
 
-![](readme_files/figure-commonmark/cell-37-output-1.png)
+![](readme_files/figure-commonmark/cell-39-output-1.png)
+
+NAS cancellations stayed near zero at all three hubs during the shutdown
+itself, then spiked at every hub once the FAA-mandated cuts began, with
+ORD hit hardest, then DFW next, then ATL. After the shutdown ended,
+rates dropped quickly everywhere and returned close to baseline during
+the holiday period. ORD stayed slightly higher than the other two.
 
 # 20 December ORD -\> EWR
 
-On Dec 20th of this year (2026), the domestic flight I’ll be taking on
-my way home wis from Chicago O’Hare (ORD) to Newark (EWR).
+On December 20, 2026, the domestic leg of my trip home is a flight from
+Chicago O’Hare (ORD) to Newark (EWR).
 
-What was the state of these flights exactly a year ago?
+How did these flights perform on the same date last year (20 December
+2025)?
 
 ``` python
 ord_to_ewr = flights[(flights["Origin"] == "ORD") &
@@ -994,3 +1073,22 @@ Overall, the day went smoothly, with no cancelled or diverted flights,
 and I can only hope for a similar experience a year later.
 
 # Further work
+
+Estimating Airline Liability Under an EU-Style Compensation Rule
+
+The US has no law requiring airlines to compensate passengers for
+delayed or cancelled flights. The Department of Transportation proposed
+one, offering \$200–\$775 for airline-caused disruptions, but formally
+withdrew it in November 2025.
+(https://www.fox5ny.com/news/trump-administration-drops-plan-pay-passengers-flight-delays)
+
+The EU has Regulation that states that passengers are owed money (amount
+dependent on flight distance) when they arrive 3+ hours late or their
+flight is cancelled at short notice. Disruptions outside the airline’s
+control are exempt.
+
+It could be interesting to use this data set & estimate what the
+airlines’ liability would have been during 2025 if a they had the
+proposed law enstated or regulation similar to the EU. Because we have
+access to the whole of 2025’s flight data - we can look at ‘normal’
+months, as well as the specific shutdown period.
